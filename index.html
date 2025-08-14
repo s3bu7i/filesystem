@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SimpleShare - File Sharing Made Easy</title>
+</head>
+<body bgcolor="#f5f5f5">
+    <center>
+        <h1>🗂️ SimpleShare</h1>
+        <p><i>Share files instantly with the world</i></p>
+        
+        <hr width="80%">
+        
+        <!-- Upload Form -->
+        <h2>📤 Upload a File</h2>
+        <form action="/upload" method="post" enctype="multipart/form-data">
+            <table border="1" cellpadding="10" bgcolor="white">
+                <tr>
+                    <td align="right"><b>Select File:</b></td>
+                    <td><input type="file" name="file" required></td>
+                </tr>
+                <tr>
+                    <td align="right"><b>Description:</b></td>
+                    <td><input type="text" name="description" placeholder="Optional description" size="30"></td>
+                </tr>
+                <tr>
+                    <td align="right"><b>Your Name:</b></td>
+                    <td><input type="text" name="uploader" placeholder="Anonymous" size="30"></td>
+                </tr>
+                <tr>
+                    <td colspan="2" align="center">
+                        <input type="submit" value="🚀 Upload File" size="20">
+                    </td>
+                </tr>
+            </table>
+        </form>
+        
+        <hr width="80%">
+        
+        <!-- Files List -->
+        <h2>📋 Shared Files</h2>
+        <div id="files-list">
+            <table border="1" width="90%" cellpadding="8" bgcolor="white">
+                <tr bgcolor="#e0e0e0">
+                    <th>📁 File Name</th>
+                    <th>📝 Description</th>
+                    <th>👤 Uploader</th>
+                    <th>📅 Date</th>
+                    <th>💾 Size</th>
+                    <th>⬇️ Download</th>
+                    <th>🗑️ Delete</th>
+                </tr>
+                <!-- Files will be dynamically loaded here -->
+            </table>
+        </div>
+        
+        <br>
+        <button onclick="location.reload()">🔄 Refresh Files</button>
+        
+        <hr width="80%">
+        
+        <!-- Statistics -->
+        <h3>📊 Site Statistics</h3>
+        <table border="1" cellpadding="5" bgcolor="white">
+            <tr>
+                <td><b>Total Files:</b></td>
+                <td id="total-files">Loading...</td>
+            </tr>
+            <tr>
+                <td><b>Total Storage Used:</b></td>
+                <td id="total-size">Loading...</td>
+            </tr>
+            <tr>
+                <td><b>Files Today:</b></td>
+                <td id="files-today">Loading...</td>
+            </tr>
+        </table>
+        
+        <br><br>
+        <small>
+            <b>SimpleShare File Sharing Platform</b><br>
+            Maximum file size: 1GB | Supported formats: All<br>
+            Files are automatically deleted after 30 days of inactivity
+        </small>
+    </center>
+
+    <script>
+        // Auto-refresh files list every 30 seconds
+        setInterval(function() {
+            loadFiles();
+            loadStats();
+        }, 30000);
+        
+        // Load files on page load
+        window.onload = function() {
+            loadFiles();
+            loadStats();
+        };
+        
+        function loadFiles() {
+            fetch('/api/files')
+                .then(response => response.json())
+                .then(files => {
+                    let html = '<table border="1" width="90%" cellpadding="8" bgcolor="white"><tr bgcolor="#e0e0e0"><th>📁 File Name</th><th>📝 Description</th><th>👤 Uploader</th><th>📅 Date</th><th>💾 Size</th><th>⬇️ Download</th><th>🗑️ Delete</th></tr>';
+                    
+                    files.forEach(file => {
+                        html += `<tr>
+                            <td><b>${file.original_name}</b></td>
+                            <td>${file.description || 'No description'}</td>
+                            <td>${file.uploader || 'Anonymous'}</td>
+                            <td>${new Date(file.upload_date).toLocaleDateString()}</td>
+                            <td>${formatFileSize(file.file_size)}</td>
+                            <td><a href="/download/${file.id}">⬇️ Download</a></td>
+                            <td><button onclick="deleteFile('${file.id}', '${file.original_name}')" style="color: red;">🗑️ Delete</button></td>
+                        </tr>`;
+                    });
+                    
+                    html += '</table>';
+                    document.getElementById('files-list').innerHTML = html;
+                })
+                .catch(err => {
+                    document.getElementById('files-list').innerHTML = '<p>Error loading files. Please refresh the page.</p>';
+                });
+        }
+        
+        function loadStats() {
+            console.log('Loading stats...');
+            fetch('/api/stats')
+                .then(response => {
+                    console.log('Stats response status:', response.status);
+                    return response.json();
+                })
+                .then(stats => {
+                    console.log('Stats data:', stats);
+                    document.getElementById('total-files').textContent = stats.total_files || 0;
+                    document.getElementById('total-size').textContent = formatFileSize(stats.total_size || 0);
+                    document.getElementById('files-today').textContent = stats.files_today || 0;
+                })
+                .catch(err => {
+                    console.error('Stats error:', err);
+                    document.getElementById('total-files').textContent = 'Error';
+                    document.getElementById('total-size').textContent = 'Error';
+                    document.getElementById('files-today').textContent = 'Error';
+                });
+        }
+        
+        function deleteFile(fileId, fileName) {
+            console.log(`Attempting to delete file: ${fileId} - ${fileName}`);
+            
+            if (confirm(`Are you sure you want to delete "${fileName}"?`)) {
+                fetch(`/delete/${fileId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                })
+                .then(response => {
+                    console.log('Delete response status:', response.status);
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Delete response data:', data);
+                    if (data.success) {
+                        alert('File deleted successfully!');
+                        loadFiles(); // Refresh the file list
+                        loadStats(); // Refresh statistics
+                    } else {
+                        alert('Error deleting file: ' + data.message);
+                    }
+                })
+                .catch(err => {
+                    console.error('Delete error:', err);
+                    alert('Error deleting file. Please try again.');
+                });
+            }
+        }
+        
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+    </script>
+</body>
+</html>
